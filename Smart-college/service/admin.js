@@ -16,7 +16,7 @@ class adminService {
     }
 
     static getStudentByName(studentName) {
-        return studentModel.findOne({ name: studentName })
+        return studentModel.findOne({ name: { $regex: studentName, $options: 'm' } })
     }
 
     static addStudent(student) {
@@ -29,7 +29,7 @@ class adminService {
     // }
 
     static deleteStudent(id) {
-        return studentModel.findByIdAndDelete(id);
+        return studentModel.findOneAndDelete({ _id: id });
     }
 
     static getGradesForSpecificCourse(courseCode) {
@@ -69,7 +69,7 @@ class adminService {
     }
 
     static getTeacherByName(teacherName) {
-        return teacherModel.findOne({ name: teacherName })
+        return teacherModel.findOne({ name: { $regex: teacherName, $options: 'm' } });
     }
 
     static addTeacher(teacher) {
@@ -110,7 +110,7 @@ class adminService {
     }
 
     static getCourseByName(courseName) {
-        return courseModel.findOne({ courseName: courseName })
+        return courseModel.findOne({ courseName: { $regex: courseName, $options: 'm' } });
     }
 
     static addCourse(course) {
