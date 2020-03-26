@@ -14,7 +14,7 @@ const auth = require("../middleware/auth");
 /**
  * @method - GET
  * @description - Get All Students
- * @param - /students/view/students
+ * @param - /admin/view/students
  */
 
 router.get('/view/students', (req, res) => {
@@ -26,7 +26,7 @@ router.get('/view/students', (req, res) => {
             res.status(404).json({ msg: 'No Students Yet' });
         }
     }).catch(err => {
-        Console.log(err);
+        console.log(err);
         res.status(500).json({ msg: 'Internal Server Error' });
     })
 });
@@ -34,7 +34,7 @@ router.get('/view/students', (req, res) => {
 /**
  * @method - GET
  * @description - Get Student by id
- * @param - /students/view/student
+ * @param - /admin/view/studentbyid
  */
 
 router.get('/view/studentbyid', (req, res) => {
@@ -47,7 +47,7 @@ router.get('/view/studentbyid', (req, res) => {
             res.status(404).json({ msg: 'Student Not Found' });
         }
     }).catch(err => {
-        Console.log(err);
+        console.log(err);
         res.status(500).json({ msg: 'Internal Server Error' });
     })
 });
@@ -55,7 +55,7 @@ router.get('/view/studentbyid', (req, res) => {
 /**
  * @method - GET
  * @description - Get Student by name
- * @param - /students/view/student
+ * @param - /admin/view/studentbyname
  */
 
 router.get('/view/studentbyname', (req, res) => {
@@ -68,7 +68,7 @@ router.get('/view/studentbyname', (req, res) => {
             res.status(404).json({ msg: 'Student Not Found' });
         }
     }).catch(err => {
-        Console.log(err);
+        console.log(err);
         res.status(500).json({ msg: 'Internal Server Error' });
     })
 });
@@ -77,7 +77,7 @@ router.get('/view/studentbyname', (req, res) => {
 /**
  * @method - POST
  * @description - Add New Student
- * @param - /students/addstudent
+ * @param - /admin/addstudent
  */
 router.post(
     "/addstudent",
@@ -100,29 +100,37 @@ router.post(
         const student = req.body;
         email = student.email;
         id = req.body._id;
+        course = req.body.courses;
         try {
-            let user = await studentModel.findOne({
+            let checkforid = await studentModel.findOne({
                 _id: id
             });
-            let user2 = await studentModel.findOne({
+            let checkforemail = await studentModel.findOne({
                 email
             });
-            if (user || user2) {
+            let checkforcourse = await courseModel.findOne({
+                courseCode: course
+            });
+            if (checkforid || checkforemail) {
                 return res.status(400).json({
                     msg: "User Already Exists"
+                });
+            }
+            else if (!checkforcourse) {
+                return res.status(400).json({
+                    msg: "Course Not Found"
                 });
             }
             else {
                 adminService.addStudent(student).then((student) => {
                     if (student) {
                         res.json({ msg: 'Student Added Successfuly' });
-                        res.json(student);
                     }
                     else {
                         res.status(404).json({ msg: "Can't Add This Students" });
                     }
                 }).catch(err => {
-                    Console.log(err);
+                    console.log(err);
                     res.status(500).json({ msg: 'Internal Server Error' });
                 })
             }
@@ -139,7 +147,7 @@ router.post(
 /**
  * @method - PUT
  * @description - Update Student By Id
- * @param - /students/updatestudent
+ * @param - /admin/updatestudent
  */
 router.put('/updatestudent', (req, res) => {
     let id = req.body._id;
@@ -157,58 +165,60 @@ router.put('/updatestudent', (req, res) => {
 /**
  * @method - DELETE
  * @description - Delete Student By Id
- * @param - /students/deletestudent
+ * @param - /admin/deletestudent
  */
-router.delete('/deletestudent', (req, res) => {
+router.delete('/deletestudent', async (req, res) => {
     let id = req.body._id;
-    if (adminService.getStudentById(id)) {
-        adminService.deleteStudent(id).then((student) => {
-            if (student) {
-                res.status(201).json({ msg: 'Student Deleted Successfuly' });
-            }
-        }).catch(err => {
-            console.log(err);
-            res.status(500).json({ msg: "Internal Server Error" });
+    try {
+        let checkforstudent = await studentModel.findOne({
+            _id: id
         });
+        if (!checkforstudent) {
+            return res.status(400).json({
+                msg: "Student Not Found"
+            });
+        }
+        else {
+            adminService.deleteStudent(id).then((student) => {
+                if (student) {
+                    res.status(201).json({ msg: 'Student Deleted Successfuly' });
+                }
+            }).catch(err => {
+                console.log(err);
+                res.status(500).json({ msg: "Internal Server Error" });
+            });
+        }
+    } catch (err) {
+        console.log(err.message);
+        res.status(500).send("Error in Saving");
     }
-    else {
-        res.status(404).json({ msg: "Student Not Found" });
-    }
-});
-
-
-
-/**
- * @method - PUT
- * @description - update grades for specific course to student
- * @param - /students/update/grade
- */
-router.put('/update/grade', (req, res) => {
-    let courseCode = req.body.courseId;
-    let studentId = req.body.studentId;
-    gradeModel.findOneAndUpdate({ studentId: studentId, courseId: courseCode },
-        req.body,
-        { useFindAndModify: false },
-        (err) => {
-            if (err) {
-                res.status(404).json({ msg: "Can't Update this Student Information" });
-            }
-            res.status(201).json({ msg: "Student's Grade Updated Successfuly" });
-        });
 });
 
 /**
  * @method - DELETE
  * @description - delete course for student
- * @param - /students/delete/student/course
+ * @param - /admin/delete/student/course
  */
-router.delete('/delete/student/course', (req, res) => {
+router.delete('/delete/student/course', async (req, res) => {
     let courseCode = req.body.courseCode;
     let id = req.body._id;
-    if (adminService.getStudentById(id)) {
-
-        if (adminService.getCourseByCode(courseCode)) {
-
+    try {
+        let checkforstudent = await studentModel.findOne({
+            _id: id
+        });
+        let checkforcourse = await studentModel.findOne({
+            courses: courseCode
+        });
+        if (!checkforstudent) {
+            return res.status(400).json({
+                msg: "Student Not Found"
+            });
+        }
+        else if (!checkforcourse) {
+            return res.status(400).json({
+                msg: "Course Not Found"
+            });
+        } else {
             adminService.deleteCourseForStudent(id, courseCode).then((course) => {
                 if (course) {
                     res.status(201).json({ msg: 'Course Deleted Successfuly from this Student' });
@@ -217,65 +227,50 @@ router.delete('/delete/student/course', (req, res) => {
                 console.log(err);
                 res.status(500).json({ msg: "Internal Server Error" });
             });
-        }
-        else {
-            res.status(404).json({ msg: "course Not Found" });
-        }
 
-    }
-    else {
-        res.status(404).json({ msg: "Student Not Found" });
+        }
+    } catch (err) {
+        console.log(err.message);
+        res.status(500).send("Error in Saving");
     }
 });
 
 
-
-/**
- * @method - GET
- * @description - Get Students in specific course
- * @param - /students/view/student
- */
-router.get('/view/students/course', (req, res) => {
-    let courseCode = req.body.corseCode;
-    let students
-    if (adminService.getCourseByCode(courseCode)) {
-        adminService.getStudentsInSpecificCourse(courseCode).then((students) => {
-            if (students) {
-                res.json(students);
-            }
-        }).catch(err => {
-            console.log(err);
-            res.status(500).json({ msg: "Internal Server Error" });
-        });
-    }
-    else {
-        res.status(404).json({ msg: "Course Not Found" });
-    }
-});
 
 
 /**
  * @method - GET
  * @description - Get Student courses
- * @param - /students/view/student/courses
+ * @param - /admin/view/student/courses
  */
-router.get('/view/student/courses', (req, res) => {
+router.get('/view/student/courses', async (req, res) => {
     let id = req.body._id;
-    if (adminService.getStudentById(id)) {
-        adminService.getStudentCourses(id).then((courses) => {
-            if (courses) {
-                res.json(courses);
-            }
-            else {
-                res.status(500).json({ msg: "No Courses For This Student" });
-            }
-        }).catch(err => {
-            console.log(err);
-            res.status(500).json({ msg: "Internal Server Error" });
+    try {
+        let checkforstudent = await studentModel.findOne({
+            _id: id
         });
-    }
-    else {
-        res.status(404).json({ msg: "Student Not Found" });
+        if (!checkforstudent) {
+            return res.status(400).json({
+                msg: "Student Not Found"
+            });
+        }
+        else {
+            adminService.getStudentCourses(id).then((courses) => {
+                if (courses) {
+                    res.json(courses);
+                }
+                else {
+                    res.status(500).json({ msg: "No Courses For This Student" });
+                }
+            }).catch(err => {
+                console.log(err);
+                res.status(500).json({ msg: "Internal Server Error" });
+            });
+        }
+
+    } catch (err) {
+        console.log(err.message);
+        res.status(500).send("Error in Saving");
     }
 });
 
@@ -284,7 +279,7 @@ router.get('/view/student/courses', (req, res) => {
 /**
  * @method - GET
  * @description - Get All Teachers
- * @param - /students/view/teachers
+ * @param - /admin/view/teachers
  */
 
 router.get('/view/teachers', (req, res) => {
@@ -296,7 +291,7 @@ router.get('/view/teachers', (req, res) => {
             res.status(404).json({ msg: 'No Teachers Yet' });
         }
     }).catch(err => {
-        Console.log(err);
+        console.log(err);
         res.status(500).json({ msg: 'Internal Server Error' });
     })
 });
@@ -304,7 +299,7 @@ router.get('/view/teachers', (req, res) => {
 /**
  * @method - GET
  * @description - Get Teacher by id
- * @param - /students/view/teacher
+ * @param - /admin/view/teacherbyid
  */
 
 router.get('/view/teacherbyid', (req, res) => {
@@ -317,7 +312,7 @@ router.get('/view/teacherbyid', (req, res) => {
             res.status(404).json({ msg: 'Teacher Not Found' });
         }
     }).catch(err => {
-        Console.log(err);
+        console.log(err);
         res.status(500).json({ msg: 'Internal Server Error' });
     })
 });
@@ -325,7 +320,7 @@ router.get('/view/teacherbyid', (req, res) => {
 /**
  * @method - GET
  * @description - Get Teacher by name
- * @param - /students/view/teacher
+ * @param - /admin/view/teacherbyname
  */
 
 router.get('/view/teacherbyname', (req, res) => {
@@ -338,7 +333,7 @@ router.get('/view/teacherbyname', (req, res) => {
             res.status(404).json({ msg: 'Teacher Not Found' });
         }
     }).catch(err => {
-        Console.log(err);
+        console.log(err);
         res.status(500).json({ msg: 'Internal Server Error' });
     })
 });
@@ -347,7 +342,7 @@ router.get('/view/teacherbyname', (req, res) => {
 /**
  * @method - POST
  * @description - Add New Teacher
- * @param - /students/addteacher
+ * @param - /admin/addteacher
  */
 router.post(
     "/addteacher",
@@ -386,13 +381,12 @@ router.post(
                 adminService.addTeacher(teacher).then((teacher) => {
                     if (teacher) {
                         res.json({ msg: 'Teacher Added Successfuly' });
-                        res.json(teacher);
                     }
                     else {
                         res.status(404).json({ msg: 'Teacher Not Found' });
                     }
                 }).catch(err => {
-                    Console.log(err);
+                    console.log(err);
                     res.status(500).json({ msg: 'Internal Server Error' });
                 })
             }
@@ -409,7 +403,7 @@ router.post(
 /**
  * @method - PUT
  * @description - Update Teacher By Id
- * @param - /students/updateteacher
+ * @param - /admin/updateteacher
  */
 router.put('/updateteacher', (req, res) => {
     let id = req.body._id;
@@ -427,101 +421,112 @@ router.put('/updateteacher', (req, res) => {
 /**
  * @method - DELETE
  * @description - Delete Teacher By Id
- * @param - /students/deleteteacher
+ * @param - /admin/deleteteacher
  */
-router.delete('/deleteteacher', (req, res) => {
+router.delete('/deleteteacher', async (req, res) => {
     let id = req.body._id;
-    if (adminService.getTeacherById(id)) {
-        adminService.deleteTeacher(id).then((student) => {
-            if (student) {
-                res.status(201).json({ msg: 'Teacher Deleted Successfuly' });
-            }
-        }).catch(err => {
-            console.log(err);
-            res.status(500).json({ msg: "Internal Server Error" });
+    try {
+        let checkforteacher = await teacherModel.findOne({
+            _id: id
         });
-    }
-    else {
-        res.status(404).json({ msg: "Teacher Not Found" });
-    }
-});
-
-/**
- * @method - DELETE
- * @description - delete course for teacher
- * @param - /students/delete/teacher/course
- */
-router.delete('/delete/teacher/course', (req, res) => {
-    let courseCode = req.body.courseCode;
-    let id = req.body._id;
-    if (adminService.getTeacherById(id)) {
-
-        if (adminService.getCourseByCode(courseCode)) {
-
-            adminService.deleteCourseForTeacher(id, courseCode).then((course) => {
-                if (course) {
-                    res.status(201).json({ msg: 'Course Deleted Successfuly for this Teacher' });
+        if (!checkforteacher) {
+            return res.status(400).json({
+                msg: "Teacher Not Found"
+            });
+        }
+        else {
+            adminService.deleteTeacher(id).then((teacher) => {
+                if (teacher) {
+                    res.status(201).json({ msg: 'Teacher Deleted Successfuly' });
                 }
             }).catch(err => {
                 console.log(err);
                 res.status(500).json({ msg: "Internal Server Error" });
             });
         }
-        else {
-            res.status(404).json({ msg: "course Not Found" });
-        }
-
-    }
-    else {
-        res.status(404).json({ msg: "Student Not Found" });
+    } catch (err) {
+        console.log(err.message);
+        res.status(500).send("Error in Saving");
     }
 });
-
-
-
 
 /**
- * @method - GET
- * @description - Get Teachers in specific course
- * @param - /students/view/teachers/course
+ * @method - DELETE
+ * @description - delete course for teacher
+ * @param - /admin/delete/teacher/course
  */
-router.get('/view/teachers/course', (req, res) => {
+router.delete('/delete/teacher/course', async (req, res) => {
     let courseCode = req.body.courseCode;
-    if (adminService.getCourseByCode(courseCode)) {
-        adminService.getTeacherInSpecificCourse(courseCode).then((teachers) => {
-            if (teachers) {
-                res.json(teachers);
-            }
-        }).catch(err => {
-            console.log(err);
-            res.status(500).json({ msg: "Internal Server Error" });
+    let id = req.body._id;
+    try {
+        let checkforteacher = await teacherModel.findOne({
+            _id: id
         });
-    }
-    else {
-        res.status(404).json({ msg: "Course Not Found" });
+        let checkforcourse = await teacherModel.findOne({
+            courses: courseCode
+        });
+        if (!checkforteacher) {
+            return res.status(400).json({
+                msg: "Teacher Not Found"
+            });
+        }
+        else if (!checkforcourse) {
+            return res.status(400).json({
+                msg: "Course Not Found"
+            });
+        } else {
+            adminService.deleteCourseForTeacher(id, courseCode).then((course) => {
+                if (course) {
+                    res.status(201).json({ msg: 'Course Deleted Successfuly from this Teacher' });
+                }
+            }).catch(err => {
+                console.log(err);
+                res.status(500).json({ msg: "Internal Server Error" });
+            });
+
+        }
+    } catch (err) {
+        console.log(err.message);
+        res.status(500).send("Error in Saving");
     }
 });
+
+
 
 
 /**
  * @method - GET
  * @description - Get Teacher courses
- * @param - /students/view/teacher/courses
+ * @param - /admin/view/teacher/courses
  */
-router.get('/view/teacher/courses', (req, res) => {
+router.get('/view/teacher/courses', async (req, res) => {
     let id = req.body._id;
-    if (adminService.getTeacherById(id)) {
-        adminService.getTeacherCourses(id).then((courses) => {
-            if (courses) {
-                res.json(courses);
-            }
-            else {
-                res.status(500).json({ msg: "Teacher Not Found" });
-            }
-        }).catch(err => {
-            console.log(err);
-            res.status(500).json({ msg: "Internal Server Error" });
+    try {
+        let checkforteacher = await teacherModel.findOne({
+            _id: id
         });
+        if (!checkforteacher) {
+            return res.status(400).json({
+                msg: "Teacher Not Found"
+            });
+        }
+        else {
+            adminService.getTeacherCourses(id).then((courses) => {
+                if (courses) {
+                    res.json(courses);
+                }
+                else {
+                    res.status(500).json({ msg: "No Courses For This Teacher" });
+                }
+            }).catch(err => {
+                console.log(err);
+                res.status(500).json({ msg: "Internal Server Error" });
+            });
+        }
+
+    } catch (err) {
+        console.log(err.message);
+        res.status(500).send("Error in Saving");
     }
 
 });
@@ -532,7 +537,7 @@ router.get('/view/teacher/courses', (req, res) => {
 /**
  * @method - GET
  * @description - Get All Courses
- * @param - /students/view/courses
+ * @param - /admin/view/courses
  */
 
 router.get('/view/courses', (req, res) => {
@@ -544,7 +549,7 @@ router.get('/view/courses', (req, res) => {
             res.status(404).json({ msg: 'No Courses Yet' });
         }
     }).catch(err => {
-        Console.log(err);
+        console.log(err);
         res.status(500).json({ msg: 'Internal Server Error' });
     })
 });
@@ -552,7 +557,7 @@ router.get('/view/courses', (req, res) => {
 /**
  * @method - GET
  * @description - Get Course by code
- * @param - /students/view/course
+ * @param - /admin/view/coursebyid
  */
 
 router.get('/view/coursebyid', (req, res) => {
@@ -565,7 +570,7 @@ router.get('/view/coursebyid', (req, res) => {
             res.status(404).json({ msg: 'Student Not Found' });
         }
     }).catch(err => {
-        Console.log(err);
+        console.log(err);
         res.status(500).json({ msg: 'Internal Server Error' });
     })
 });
@@ -573,7 +578,7 @@ router.get('/view/coursebyid', (req, res) => {
 /**
  * @method - GET
  * @description - Get Course by name
- * @param - /students/view/course
+ * @param - /admin/view/coursebyname
  */
 
 router.get('/view/coursebyname', (req, res) => {
@@ -583,10 +588,10 @@ router.get('/view/coursebyname', (req, res) => {
             res.json(course);
         }
         else {
-            res.status(404).json({ msg: 'Student Not Found' });
+            res.status(404).json({ msg: 'Course Not Found' });
         }
     }).catch(err => {
-        Console.log(err);
+        console.log(err);
         res.status(500).json({ msg: 'Internal Server Error' });
     })
 });
@@ -594,7 +599,7 @@ router.get('/view/coursebyname', (req, res) => {
 /**
  * @method - POST
  * @description - Add New Course
- * @param - /students/addcourse
+ * @param - /admin/addcourse
  */
 router.post(
     "/addcourse",
@@ -635,13 +640,12 @@ router.post(
                 adminService.addCourse(course).then((course) => {
                     if (course) {
                         res.json({ msg: 'Course Added Successfuly' });
-                        res.json(course);
                     }
                     else {
                         res.status(404).json({ msg: "Can't add this Course" });
                     }
                 }).catch(err => {
-                    Console.log(err);
+                    console.log(err);
                     res.status(500).json({ msg: 'Internal Server Error' });
                 })
             }
@@ -658,12 +662,20 @@ router.post(
 /**
  * @method - PUT
  * @description - Update Course By Course Code
- * @param - /students/updatecourse
+ * @param - /admin/updatecourse
  */
-router.put('/updatecourse', (req, res) => {
+router.put('/updatecourse', async (req, res) => {
     let code = req.body.courseCode;
-    adminService.getCourseByCode(code).then((course) => {
-        if (course) {
+    try {
+        let checkforcourse = await courseModel.findOne({
+            courseCode: code
+        });
+        if (!checkforcourse) {
+            return res.status(400).json({
+                msg: "Course Not Found"
+            });
+        }
+        else {
             courseModel.findOneAndUpdate({ courseCode: code },
                 req.body,
                 { useFindAndModify: false },
@@ -674,66 +686,119 @@ router.put('/updatecourse', (req, res) => {
                     res.status(201).json({ msg: "Course's Information Updated Successfuly" });
                 });
         }
-        else {
-            res.status(404).json({ msg: 'Course Not Found' });
-        }
-    }).catch(err => {
-        Console.log(err);
-        res.status(500).json({ msg: 'Internal Server Error' });
-    })
-
+    } catch (err) {
+        console.log(err.message);
+        res.status(500).send("Error in updating");
+    }
 });
 
 /**
  * @method - DELETE
  * @description - Delete Course By Id
- * @param - /students/deletecourse
+ * @param - /admin/deletecourse
  */
-router.delete('/deletecourse', (req, res) => {
+router.delete('/deletecourse', async (req, res) => {
     let code = req.body.courseCode;
-    if (adminService.getCourseByCode(code)) {
-        adminService.deleteCourse(code).then((course) => {
-            if (course) {
-                res.status(201).json({ msg: 'Course Deleted Successfuly' });
-            }
-        }).catch(err => {
-            console.log(err);
-            res.status(500).json({ msg: "Internal Server Error" });
+    try {
+        let checkforcourse = await courseModel.findOne({
+            courseCode: code
         });
-    }
-    else {
-        res.status(404).json({ msg: "Course Not Found" });
+        if (!checkforcourse) {
+            return res.status(400).json({
+                msg: "Course Not Found"
+            });
+        }
+        else {
+            adminService.deleteCourse(code).then((course) => {
+                if (course) {
+                    res.status(201).json({ msg: 'Course Deleted Successfuly' });
+                }
+            }).catch(err => {
+                console.log(err);
+                res.status(500).json({ msg: "Internal Server Error" });
+            });
+        }
+    } catch (err) {
+        console.log(err.message);
+        res.status(500).send("Error in Saving");
     }
 
 });
+
+
 
 
 /**
  * @method - GET
- * @description - Get grades for specific course
- * @param - /students/view/grades
+ * @description - Get Students in specific course
+ * @param - /admin/view/course/students
  */
-
-router.get('/view/grades', (req, res) => {
-    let courseCode = req.body.courseId;
-    adminService.getGradesForSpecificCourse(courseCode).then((grades) => {
-        if (grades) {
-            res.json(grades);
+router.get('/view/course/students', async (req, res) => {
+    let code = req.body.courseCode;
+    try {
+        let checkforcourse = await courseModel.findOne({
+            courseCode: code
+        });
+        if (!checkforcourse) {
+            return res.status(400).json({
+                msg: "Course Not Found"
+            });
         }
         else {
-            res.status(404).json({ msg: 'No Grades For This Course Yet' });
+            adminService.getStudentsInSpecificCourse(code).then((students) => {
+                if (students) {
+                    res.json(students);
+                }
+            }).catch(err => {
+                console.log(err);
+                res.status(500).json({ msg: "Internal Server Error" });
+            });
         }
-    }).catch(err => {
-        Console.log(err);
-        res.status(500).json({ msg: 'Internal Server Error' });
-    })
+
+    } catch (err) {
+        console.log(err.message);
+        res.status(500).send("Error in Saving");
+    }
+});
+/**
+ * @method - GET
+ * @description - Get Teachers in specific course
+ * @param - /admin/view/course/teachers
+ */
+router.get('/view/course/teachers', async (req, res) => {
+    let code = req.body.courseCode;
+    try {
+        let checkforcourse = await courseModel.findOne({
+            courseCode: code
+        });
+        if (!checkforcourse) {
+            return res.status(400).json({
+                msg: "Course Not Found"
+            });
+        }
+        else {
+            adminService.getTeacherInSpecificCourse(code).then((teachers) => {
+                if (teachers) {
+                    res.json(teachers);
+                }
+            }).catch(err => {
+                console.log(err);
+                res.status(500).json({ msg: "Internal Server Error" });
+            });
+        }
+
+    } catch (err) {
+        console.log(err.message);
+        res.status(500).send("Error in Searching");
+    }
 });
 
+// ------------------------Grade Route-----------------------
 
 /**
  * @method - POST
  * @description - ADD Grade 
- * @param - /students/addgrade
+ * @param - /admin/addgrade
  */
 router.post(
     "/addgrade",
@@ -787,20 +852,96 @@ router.post(
                     if (grade) {
                         res.json({ msg: 'Grade Added Successfuly' });
                     }
-                    else {
-                        res.status(404).json({ msg: "Can't Add This Grade" });
-                    }
                 }).catch(err => {
-                    Console.log(err);
+                    console.log(err);
                     res.status(500).json({ msg: 'Internal Server Error' });
                 })
             }
         } catch (err) {
             console.log(err.message);
-            res.status(500).send("Error in Saving");
+            res.status(500).send("Error in Adding");
         }
     }
 );
+/**
+ * @method - GET
+ * @description - Get grades for specific course
+ * @param - /admin/view/course/grades
+ */
+
+router.get('/view/course/grades', async (req, res) => {
+    let code = req.body.courseCode;
+    try {
+        let checkforcourse = await gradeModel.findOne({
+            courseId: code
+        });
+        if (!checkforcourse) {
+            return res.status(400).json({
+                msg: "Course Not Found"
+            });
+        }
+        else {
+            adminService.getGradesForSpecificCourse(code).then((grades) => {
+                if (grades) {
+                    res.json(grades);
+                }
+                else {
+                    res.status(404).json({ msg: 'No Grades For This Course Yet' });
+                }
+            }).catch(err => {
+                console.log(err);
+                res.status(500).json({ msg: 'Internal Server Error' });
+            })
+        }
+
+    } catch (err) {
+        console.log(err.message);
+        res.status(500).send("Error in Saving");
+    }
+});
+
+/**
+ * @method - PUT
+ * @description - update grades for specific course to student
+ * @param - /admin/update/student/grade
+ */
+router.put('/update/student/grade', async (req, res) => {
+    let courseId = req.body.courseId;
+    let studentId = req.body.studentId;
+    let gradeType = req.body.gradeType;
+    try {
+        let checkStudentId = await gradeModel.findOne({
+            studentId: studentId
+        });
+        let checkCourseId = await gradeModel.findOne({
+            courseId: courseId
+        });
+        let checkGradeType = await gradeModel.findOne({
+            gradeType: gradeType, studentId: studentId, courseId: courseId
+        });
+
+        if (!checkCourseId || !checkStudentId || !checkGradeType) {
+            return res.status(400).json({
+                msg: "Something is wrong in you data"
+            });
+        }
+        else {
+            gradeModel.findOneAndUpdate({ studentId, courseId, gradeType },
+                req.body,
+                { useFindAndModify: false },
+                (err) => {
+                    if (err) {
+                        res.status(404).json({ msg: "Can't Update this Student's Grade Information" });
+                    }
+                    res.status(201).json({ msg: "Student's Grade Updated Successfuly" });
+                });
+        }
+    } catch (err) {
+        console.log(err.message);
+        res.status(500).send("Error in updating");
+    }
+
+});
 
 
 
