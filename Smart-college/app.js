@@ -4,7 +4,9 @@ let bodyparser=require('body-parser');
 require('./db.js');
 
 let adminRouter=require('./route/admin');
+let studentRouter=require('./route/student');
 
+let teacherRouter=require('./route/teacher');
 
 
 let cors=require('cors');
@@ -25,7 +27,8 @@ app.use(session({
 
 app.use('/admin',adminRouter);
 
-
+app.use('/student',studentRouter);
+app.use('/teacher',teacherRouter);
 
 
 
